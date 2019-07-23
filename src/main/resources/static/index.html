@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>d3js playground</title>
+	<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+	<script src='http://d3js.org/d3.v3.min.js'></script>
+	<script src='http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js'></script>
+	<script type='text/javascript' src='webjars/jquery/2.1.4/jquery.min.js'></script>
+	<script type='text/javascript' src='js/main.js'></script>
+	<script type='text/css' src='css/main.css'></script>
+	<script type='text/javascript'>
+	$(function init() {
+		var margin = { top: 20, right: 50, bottom: 30, left: 80 },
+			width = 1200 - margin.left - margin.right,
+			height = 500 - margin.top - margin.bottom;
+
+		var x0 = d3.scale.ordinal()
+			.rangeRoundBands([0, width], .1);
+
+		var x1 = d3.scale.ordinal();
+
+		var y = d3.scale.linear()
+			.range([height, 0]);
+
+		var xAxis = d3.svg.axis()
+			.scale(x0)
+			.tickSize(0)
+			.orient('bottom');
+
+		var yAxis = d3.svg.axis()
+			.scale(y)
+			.orient('left');
+
+		var color = d3.scale.ordinal()
+			.range(['#DB843D', '#89A54E', '#4572A7']);
+		
+		var tooltip = d3.select('body').append('div')
+			.style('position', 'absolute')
+			.style('background-color', 'white')
+			.style('display', 'none')
+			.style('border', '1px solid #6F257F')
+			.style('border-radius', '10px')
+			.style('min-width', '80px')
+			.style('height', 'auto')
+			.style('padding', '4px')
+			.style('text-align', 'center');
+		
+		var svg = d3.select('body').append('svg')
+			.attr('width', width + margin.left + margin.right)
+			.attr('height', height + margin.top + margin.bottom)
+			.append('g')
+			.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+		d3.json('/api/moneys', function(error, data) {
+
+			data = groupByMonth(data);
+			console.log(data);
+
+			var categoriesNames = data.map(function (d) { 
+				return d.categorie; 
+			});
+			var years = data[0].values.map(function (d) { 
+				return d.year; 
+			});
+
+			x0.domain(categoriesNames);
+			x1.domain(years).rangeRoundBands([0, x0.rangeBand()]);
+			y.domain([0, d3.max(data, function(categorie) { return d3.max(categorie.values, function(d) { return d.money; }); })]);
+
+			svg.append('g')
+				.attr('class', 'x axis')
+				.attr('transform', 'translate(0,' + height + ')')
+				.call(xAxis);
+
+			svg.append('g')
+				.attr('class', 'y axis')
+				.style('opacity', '0')
+				.call(yAxis)
+				.append('text')
+				.attr('transform', 'rotate(-90)')
+				.attr('y', 6)
+				.attr('dy', '.71em')
+				.style('text-anchor', 'end')
+				.style('font-weight', 'bold')
+				.text('Value');
+
+			svg.select('.y').transition().duration(500).delay(1300).style('opacity', '1');
+
+			var slice = svg.selectAll('.slice')
+				.data(data)
+				.enter().append('g')
+				.attr('class', 'g')
+				.attr('transform', function(d) { return 'translate(' + x0(d.categorie) + ',0)'; });
+
+			slice.selectAll('rect')
+				.data(function(d) { return d.values; })
+				.enter()
+				.append('rect')
+				.attr('x', function(d) { return x1(d.year); })
+				.attr('y', function(d) { return y(0); })
+				.attr('width', x1.rangeBand())
+				.attr('height', function(d) { return height - y(0); })
+				.style('fill', function(d) { return color(d.year) })
+				.on('mouseover', function(d) {
+					d3.select(this).style('fill', d3.rgb(color(d.year)).darker(2)); 
+					tooltip.style('left', d3.event.pageX - 50 + 'px')
+						.style('top', d3.event.pageY - 70 + 'px')
+						.style('display', 'inline-block')
+						.html('' + (d.money));
+				})
+				.on('mouseout', function(d) {
+					d3.select(this).style('fill', color(d.year));
+					tooltip.style('display', 'none');
+				});
+
+			slice.selectAll('rect')
+				.transition()
+				.delay(function(d) { return Math.random() * 1000; })
+				.duration(1000)
+				.attr('y', function(d) { return y(d.money); })
+				.attr('height', function(d) { return height - y(d.money); });
+
+			//Legend
+			var legend = svg.selectAll('.legend')
+				.data(data[0].values.map(function(d) { return d.year; }).reverse())
+				.enter().append('g')
+				.attr('class', 'legend')
+				.attr('transform', function(d, i) { return 'translate(0,' + i * 20 + ')'; })
+				.style('opacity', '0');
+
+			legend.append('rect')
+				.attr('x', width - 18)
+				.attr('width', 18)
+				.attr('height', 18)
+				.style('fill', function(d) { return color(d); });
+
+			legend.append('text')
+				.attr('x', width - 24)
+				.attr('y', 9)
+				.attr('dy', '.35em')
+				.style('text-anchor', 'end')
+				.text(function(d) { return d; });
+
+			legend.transition().duration(500).delay(function(d, i) { return 1300 + 100 * i; }).style('opacity', '1');
+		});
+	});
+	</script>
+</head>
+
+<body>
+</body>
+
+</html>
